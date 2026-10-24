@@ -34,19 +34,6 @@
     try { api().launch(id, function () { finish(null); }, function (err) { finish(failure(err)); }); }
     catch (err) { finish(failure(err)); }
   }
-  function exitAfterHandoff() {
-    var current;
-    try {
-      current = api() && api().getCurrentApplication && api().getCurrentApplication();
-      if (current && current.exit) setTimeout(function () { try { current.exit(); } catch (_) {} }, 250);
-    } catch (_) {}
-  }
-  function handoffApp(id, done) {
-    launchApp(id, function (err) {
-      done(err);
-      if (!err) exitAfterHandoff();
-    });
-  }
   function launch(brand, done) {
     if (!IDS[brand]) { done({message: 'This app has no launch target.'}); return; }
     launchApp(IDS[brand], done);
@@ -83,5 +70,5 @@
       }, function (err) { finish(failure(err)); });
     } catch (err) { finish(failure(err)); }
   }
-  window.FrameDevice = { launch: launch, launchApp: launchApp, handoffApp: handoffApp, art: art, home: home, settings: settings, apps: apps };
+  window.FrameDevice = { launch: launch, launchApp: launchApp, art: art, home: home, settings: settings, apps: apps };
 }());

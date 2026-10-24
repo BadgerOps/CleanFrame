@@ -246,8 +246,7 @@ try {
     await current.evaluate(() => window.dispatchEvent(new Event('focus')));
     await scene('home'); await act('home.app.tizentube'); await current.waitForFunction(() => __tv.calls.length === 2);
     check('Primary app keeps verified target', (await current.evaluate(() => __tv.calls.at(-1))).id === IDS[1]);
-    await current.waitForFunction(() => __tv.exits === 2);
-    check('Successful app handoffs release CleanFrame memory', (await current.evaluate(() => __tv.exits)) === 2);
+    check('Successful app launches keep CleanFrame alive during handoff', (await current.evaluate(() => __tv.exits)) === 0);
     await current.evaluate(() => window.dispatchEvent(new Event('focus')));
     await act('util.art'); await current.waitForFunction(() => __tv.calls.length === 3);
     const art = await current.evaluate(() => __tv.calls.at(-1));

@@ -67,8 +67,8 @@ The signing and TV scripts are specific to my setup. Your agent will need to ada
 
 | Area | Evidence and limits |
 | --- | --- |
-| Reference hardware | Samsung QA55LS03DAWXXY / LS03D, firmware 2130.0, Tizen 9.0, 32-bit ARM |
-| App installation | Signed installation and launch commands succeeded through 0.6.1. Latest rendering and remote feel still need physical observation. |
+| Reference hardware | Samsung QN75LS03DDFXZA / LS03D, firmware 1400.1, Tizen 8.0, 32-bit ARM |
+| App installation | Signed installation and launch commands succeeded through 0.6.2. Latest rendering and remote feel still need physical observation. |
 | App launch and Home | Netflix/YouTube launch and physical Home from Netflix were confirmed on the reference setup. |
 | Still open | Normal power-on after streaming/Art Mode, corrected Smart Hub escape and native Art Mode destinations need definite physical checks. |
 | Other TVs | No compatibility claim. This is Tizen source; Android TV, Google TV, LG webOS and Roku need their own implementations. |
