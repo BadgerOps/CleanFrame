@@ -16,6 +16,7 @@
   var PRIMARY_APPS = [
     { id: 'jellyfin', name: 'Jellyfin', mark: true, appId: 'AprZAARz4r.Jellyfin' },
     { id: 'tizentube', name: 'TizenTube', mark: true, appId: 'xvvl3S1TT1.TizenTubeStandalone' },
+    { id: 'livetv', name: 'Live TV', mark: true, appId: 'org.tizen.tv-viewer' },
     { id: 'disneyplus', name: 'Disney+', mark: true, appId: 'MCmYXNxgcu.DisneyPlus' },
     { id: 'youtube', name: 'YouTube', mark: true, appId: '9Ur5IzDKqV.TizenYouTube' },
     { id: 'appletv', name: 'Apple TV', mark: true, appId: 'com.samsung.tv.aria-video' },
@@ -25,7 +26,7 @@
     { id: 'applemusic', name: 'Apple Music', mark: true, appId: 'org.tizen.apple.apple-music' }
   ];
   var PRIMARY = PRIMARY_APPS.map(function (a) { return a.id; }), APPS = PRIMARY_APPS.slice(), ALPHA = [];
-  var DEFAULT_HOME = ['jellyfin', 'tizentube'];
+  var DEFAULT_HOME = ['jellyfin', 'tizentube', 'livetv'];
   var WALLS = window.CleanFrameWallpapers || [{ id: 'misty', name: 'Misty coast', tone: 'light', ut: { tr: 'mist', br: 'mist' }, frostVeil: .20 }];
   var ADAPTIVE_INK = window.CleanFrameAdaptiveInk || {};
   WALLS.forEach(function (w) { w.ut = w.ut || { tr: 'light', br: 'light' }; w.frostVeil = w.frostVeil || .12; });
@@ -340,6 +341,7 @@
       if (app(id)) h.push(id);
     });
     if (!h.length) h = DEFAULT_HOME.slice();
+    else if ((Number(s.version) || 0) < 3 && h.indexOf('livetv') < 0 && h.length < CAP) h.push('livetv');
     (Array.isArray(s.recent) ? s.recent : []).forEach(function (id) { if (safeId(id) && app(id) && h.indexOf(id) < 0 && recent.indexOf(id) < 0 && recent.length < 5) recent.push(id); });
     return {
       bg: pick(modern.bg, LOOK_VALUES.bg, legacyList ? 'dark' : 'photo'), layout: pick(modern.layout, LOOK_VALUES.layout, legacyList ? 'list' : 'dock'),
@@ -353,7 +355,7 @@
   function serialise(c) {
     var out = {}, id;
     Object.keys(c).forEach(function (key) { out[key] = c[key]; });
-    out.version = 2; out.look = lookOf(c); out.dock = c.home.slice(); out.wallpaper = c.wall;
+    out.version = 3; out.look = lookOf(c); out.dock = c.home.slice(); out.wallpaper = c.wall;
     out.theme = c.layout === 'list' ? 'list' : 'shore';
     out.appRecords = [];
     c.home.concat(c.recent).forEach(function (key) {

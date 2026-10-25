@@ -4,7 +4,7 @@ Prepared 20 October 2026. CleanFrame began on one personal Samsung The Frame. Ve
 
 ## Source boundary
 
-The public source contains the current 0.6.2 app, public-font screenshot, development tools, browser tests, setup notes and asset notices. Research folders, design studies, draft writing, unused Grid/optics code and obsolete generated images were removed after the owner's approval. Recoverable copies remain outside the public source.
+The public source contains the current 0.6.3 app, public-font screenshot, development tools, browser tests, setup notes and asset notices. Research folders, design studies, draft writing, unused Grid/optics code and obsolete generated images were removed after the owner's approval. Recoverable copies remain outside the public source.
 
 Paid Pangram fonts, signing keys, account tokens, local device addresses, recovery state and personal signed widgets remain in ignored local storage. Public preview and export use only Manrope, Geist and Newsreader. The public font check also verifies the expected font files and hashes.
 
@@ -14,7 +14,7 @@ Each of the fifteen wallpaper pages was checked for author and Unsplash licence 
 
 ## Validation
 
-A separate clean snapshot contains 193 files, about 17 MB, without private setup. It passed `npm ci`, source/resource checks, public-source and font-hash checks, all 345 Chromium acceptance checks, and an unsigned public-font export. The export contains exactly three public font binaries. `npm audit` reported zero known vulnerabilities. The retained material and icon-metric generators also passed local smoke checks. These results do not establish physical-TV behaviour.
+A separate clean snapshot contains 193 files, about 17 MB, without private setup. It passed `npm ci`, source/resource checks, public-source and font-hash checks, all 348 Chromium acceptance checks, and an unsigned public-font export. The export contains exactly three public font binaries. `npm audit` reported zero known vulnerabilities. The retained material and icon-metric generators also passed local smoke checks. These results do not establish physical-TV behaviour.
 
 Gitleaks found no credential leaks in the two published pre-release main commits, the cleaned source directory or the clean release history. Thirteen local proprietary font binaries were compared against the clean release Git objects; none matched. All local Markdown links resolved. The 107 source images contained no private location or descriptive metadata; the retained EXIF fields were dimensions, colour space and resolution. Automated checks are bounded: they cannot guarantee the absence of every possible secret or establish third-party rights beyond the documented source review.
 

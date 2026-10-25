@@ -3,6 +3,7 @@
   'use strict';
   var IDS = {
     jellyfin: 'AprZAARz4r.Jellyfin', tizentube: 'xvvl3S1TT1.TizenTubeStandalone',
+    livetv: 'org.tizen.tv-viewer',
     disneyplus: 'MCmYXNxgcu.DisneyPlus', youtube: '9Ur5IzDKqV.TizenYouTube',
     appletv: 'com.samsung.tv.aria-video', primevideo: 'org.tizen.primevideo',
     abciview: 'mWK87Xghap.ABCiview', sbs: 'OyE7OuxlUi.SBSOnDemand',

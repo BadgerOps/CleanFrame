@@ -1,4 +1,4 @@
-# Interaction behaviour — 0.6.2
+# Interaction behaviour — 0.6.3
 
 ## Home
 
@@ -33,7 +33,7 @@ The selected font applies to Home app names, the clock and Home controls, includ
 
 ## Streaming apps
 
-The nine default apps keep their known native IDs. Other installed consumer apps can also be added to Home. Launching uses the public `tizen.application.launch` API with the app's native ID. CleanFrame stays alive for Tizen to suspend after the handoff; it does not terminate the registered Home process while the target app is starting. Missing apps and denied launches produce a real error. No web player, placeholder success page or account credential is embedded.
+The default apps keep their known native IDs. Other installed consumer apps can also be added to Home. Live TV opens Samsung's built-in `org.tizen.tv-viewer` application for the television's coax tuner; it does not connect to a network tuner such as HDHomeRun. Version 2 preferences gain Live TV once during migration when Home has room, while later removal remains respected. Launching uses the public `tizen.application.launch` API with the app's native ID. CleanFrame stays alive for Tizen to suspend after the handoff; it does not terminate the registered Home process while the target app is starting. Missing apps and denied launches produce a real error. No web player, placeholder success page or account credential is embedded.
 
 ## All apps
 

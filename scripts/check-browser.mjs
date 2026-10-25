@@ -4,9 +4,10 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { openPreview, root } from './browser.mjs';
 
 const KEY = 'cleanframe.home.v1';
-const PRIMARY = ['jellyfin', 'tizentube', 'disneyplus', 'youtube', 'appletv', 'primevideo', 'abciview', 'sbs', 'applemusic'];
-const IDS = ['AprZAARz4r.Jellyfin', 'xvvl3S1TT1.TizenTubeStandalone', 'MCmYXNxgcu.DisneyPlus', '9Ur5IzDKqV.TizenYouTube', 'com.samsung.tv.aria-video', 'org.tizen.primevideo', 'mWK87Xghap.ABCiview', 'OyE7OuxlUi.SBSOnDemand', 'org.tizen.apple.apple-music'];
-const NAMES = ['Jellyfin', 'TizenTube', 'Disney+', 'YouTube', 'Apple TV', 'Prime Video', 'ABC iview', 'SBS On Demand', 'Apple Music'];
+const PRIMARY = ['jellyfin', 'tizentube', 'livetv', 'disneyplus', 'youtube', 'appletv', 'primevideo', 'abciview', 'sbs', 'applemusic'];
+const HOME_FIXTURE = PRIMARY.filter(id => id !== 'applemusic');
+const IDS = ['AprZAARz4r.Jellyfin', 'xvvl3S1TT1.TizenTubeStandalone', 'org.tizen.tv-viewer', 'MCmYXNxgcu.DisneyPlus', '9Ur5IzDKqV.TizenYouTube', 'com.samsung.tv.aria-video', 'org.tizen.primevideo', 'mWK87Xghap.ABCiview', 'OyE7OuxlUi.SBSOnDemand', 'org.tizen.apple.apple-music'];
+const NAMES = ['Jellyfin', 'TizenTube', 'Live TV', 'Disney+', 'YouTube', 'Apple TV', 'Prime Video', 'ABC iview', 'SBS On Demand', 'Apple Music'];
 const EXTRA = 'AbCdEf1234.FamilyApp', SPOTIFY = 'rJeHak5zRg.Spotify';
 const UNSAFE_NAME = 'Family <img src=x onerror="window.__catalogXss=1"> & TV';
 const CATALOG = IDS.map((id, i) => ({ id, name: NAMES[i], show: true, iconPath: '' })).concat([
@@ -24,7 +25,7 @@ const sourceFiles = ['app/main.js', 'app/device.js', 'app/index.html', 'app/styl
 const hashes = () => Object.fromEntries(sourceFiles.map(f => [f, createHash('sha256').update(readFileSync(root + f)).digest('hex')]));
 const report = { scope: 'Production UI in Chromium; mock public Tizen API only; no TV contacted.', sourceBefore: hashes(), checks: [], failures: [], pageErrors: [], expectedNetworkFailures: [] };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const baseline = (patch = {}) => ({ dock: PRIMARY.slice(), wallpaper: walls[0].id, mode: 'fixed', lastApp: 'tizentube', theme: 'shore', ...patch });
+const baseline = (patch = {}) => ({ version: 3, dock: HOME_FIXTURE.slice(), wallpaper: walls[0].id, mode: 'fixed', lastApp: 'tizentube', theme: 'shore', ...patch });
 let preview, current, section = '';
 
 function check(name, pass, detail) {
@@ -202,6 +203,11 @@ async function noLiveFilters() {
 try {
   preview = await openPreview();
   await run('Legacy preference migration', async () => {
+    await page({ seed: baseline({ version: 2, dock: ['youtube', 'tizentube'], lastApp: 'youtube' }) });
+    check('Version 2 adds Live TV once', same((await state()).dock, ['youtube', 'tizentube', 'livetv']));
+    await current.reload(); await ready();
+    check('Live TV migration is idempotent', same((await state()).dock, ['youtube', 'tizentube', 'livetv']));
+    await closePage();
     for (const theme of ['list', 'shore', 'grid']) {
       await page({ seed: baseline({ theme, dock: ['youtube', 'tizentube'], wallpaper: walls[1].id, lastApp: 'youtube', mode: '15' }) });
       const s = await state();
@@ -222,7 +228,7 @@ try {
     await closePage();
     await page({ seed: { dock: [], wallpaper: 'missing', mode: 'constructor', theme: 'constructor' } });
     const s = await state();
-    check('Invalid values recover intended default Home', same(s.dock, ['jellyfin', 'tizentube']) && walls.some(w => w.id === s.wallpaper) && ['fixed', 'open', '5', '15', '60'].includes(s.mode), s);
+    check('Invalid values recover intended default Home', same(s.dock, ['jellyfin', 'tizentube', 'livetv']) && walls.some(w => w.id === s.wallpaper) && ['fixed', 'open', '5', '15', '60'].includes(s.mode), s);
     await closePage();
     await page({ seed: baseline({ dock: [EXTRA, 'tizentube'], lastApp: EXTRA }), catalogFailure: true });
     await library();
@@ -238,7 +244,7 @@ try {
   await run('Real catalogue and native launch boundary', async () => {
     await page(); await library();
     const names = await current.locator('[data-action^="apps.open."] .label').allTextContents();
-    check('Consumer catalogue excludes services, self and duplicate YouTube', names.length === 12 && names.filter(n => n === 'YouTube').length === 1 && !names.includes('CleanFrame') && !names.includes('Background worker'), names);
+    check('Consumer catalogue includes Live TV and excludes services, self and duplicate YouTube', names.length === 13 && names.includes('Live TV') && names.filter(n => n === 'YouTube').length === 1 && !names.includes('CleanFrame') && !names.includes('Background worker'), names);
     check('Installed names stay text, including HTML punctuation', names.includes(UNSAFE_NAME) && !(await current.evaluate(() => window.__catalogXss)));
     check('Exploration fixtures do not appear', !names.includes('Plex'));
     await act('apps.open.' + SPOTIFY); await current.waitForFunction(() => __tv.calls.length > 0);
@@ -248,14 +254,17 @@ try {
     check('Primary app keeps verified target', (await current.evaluate(() => __tv.calls.at(-1))).id === IDS[1]);
     check('Successful app launches keep CleanFrame alive during handoff', (await current.evaluate(() => __tv.exits)) === 0);
     await current.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await act('util.art'); await current.waitForFunction(() => __tv.calls.length === 3);
+    await scene('home'); await act('home.app.livetv'); await current.waitForFunction(() => __tv.calls.length === 3);
+    check('Live TV launches Samsung built-in tuner', (await current.evaluate(() => __tv.calls.at(-1))).id === 'org.tizen.tv-viewer');
+    await current.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await act('util.art'); await current.waitForFunction(() => __tv.calls.length === 4);
     const art = await current.evaluate(() => __tv.calls.at(-1));
     check('Art Mode uses app-control with fullscreen request', art.method === 'launchAppControl' && art.id === 'org.tizen.art-app' && art.control.data.some(d => d.key === 'mode' && d.value[0] === 'fullscreen'), art);
     await current.evaluate(() => window.dispatchEvent(new Event('focus'))); await group('samsung'); await act('samsung.home');
-    await current.waitForFunction(() => __tv.calls.length === 4);
+    await current.waitForFunction(() => __tv.calls.length === 5);
     check('Samsung escape keeps CSFS target', (await current.evaluate(() => __tv.calls.at(-1))).id === 'com.samsung.tv.csfs');
     await current.evaluate(() => window.dispatchEvent(new Event('focus'))); await group('samsung'); await act('samsung.settings');
-    await current.waitForFunction(() => __tv.calls.length === 5);
+    await current.waitForFunction(() => __tv.calls.length === 6);
     check('TV settings keeps installed target', (await current.evaluate(() => __tv.calls.at(-1))).id === 'com.samsung.tv.coba.setting');
     await current.evaluate(() => { window.dispatchEvent(new Event('focus')); __tv.launchFailure = true; });
     await scene('home'); await act('home.app.tizentube'); await current.waitForFunction(() => ShoreQA.where().view === 'message');
@@ -263,10 +272,10 @@ try {
   });
   await run('Catalogue failure and retry', async () => {
     await page({ catalogFailure: true }); await library();
-    check('Catalogue failure leaves Home intact', same((await state()).dock, PRIMARY));
+    check('Catalogue failure leaves Home intact', same((await state()).dock, HOME_FIXTURE));
     await current.evaluate(() => { __tv.catalogFailure = false; }); await act('apps.retry');
     await current.waitForSelector('[data-action="apps.open.' + EXTRA + '"]');
-    check('Retry displays real installed names', (await current.locator('[data-action^="apps.open."]').count()) === 12);
+    check('Retry displays real installed names', (await current.locator('[data-action^="apps.open."]').count()) === 13);
   });
   await run('Native icon and failed-image fallback', async () => {
     await page({ catalog: CATALOG.map(a => a.id === EXTRA ? { ...a, iconPath: '/home/assets/icons/netflix.svg' } : a) });
