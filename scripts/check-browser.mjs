@@ -65,10 +65,20 @@ function installHarness({ seed, legacy, mock, catalog, minuteMs, catalogFailure,
   };
   if (noFontAPI) Object.defineProperty(document, 'fonts', { configurable: true, value: undefined });
   if (!mock) return;
-  window.__tv = { catalog, catalogFailure: !!catalogFailure, launchFailure: false, holdCatalog: false, pending: [], calls: [], catalogCalls: 0, exits: 0 };
+  window.__tv = { catalog, catalogFailure: !!catalogFailure, launchFailure: false, holdCatalog: false, pending: [], calls: [], catalogCalls: 0, exits: 0,
+    sources: [{ type: 'HDMI', number: 1 }, { type: 'HDMI', number: 2 }] };
   window.tizen = {
     ApplicationControlData: function (key, value) { this.key = key; this.value = value; },
     ApplicationControl: function (operation, uri, mime, category, data) { Object.assign(this, { operation, uri, mime, category, data }); },
+    systeminfo: {
+      getPropertyValue(property, ok) { setTimeout(() => ok({ connected: window.__tv.sources.map(source => ({ ...source })) }), 0); }
+    },
+    tvwindow: {
+      setSource(source, ok, fail) {
+        const tv = window.__tv; tv.calls.push({ method: 'setSource', source: { ...source } });
+        setTimeout(() => tv.launchFailure ? fail({ name: 'UnknownError', message: 'Input unavailable for QA' }) : ok(source, 'MAIN'), 0);
+      }
+    },
     application: {
       getCurrentApplication() { return { exit() { window.__tv.exits++; } }; },
       getAppsInfo(ok, fail) {
@@ -261,11 +271,15 @@ try {
     await act('util.art'); await current.waitForFunction(() => __tv.calls.length === 5);
     const art = await current.evaluate(() => __tv.calls.at(-1));
     check('Art Mode uses app-control with fullscreen request', art.method === 'launchAppControl' && art.id === 'org.tizen.art-app' && art.control.data.some(d => d.key === 'mode' && d.value[0] === 'fullscreen'), art);
+    await current.evaluate(() => window.dispatchEvent(new Event('focus'))); await scene('home'); await act('util.inputs'); await act('input.hdmi.2');
+    await current.waitForFunction(() => __tv.calls.length === 7);
+    const inputCalls = await current.evaluate(() => __tv.calls.slice(-2));
+    check('HDMI selection changes the numbered source then opens the TV viewer', inputCalls[0].method === 'setSource' && inputCalls[0].source.number === 2 && inputCalls[1].id === 'org.tizen.tv-viewer', inputCalls);
     await current.evaluate(() => window.dispatchEvent(new Event('focus'))); await group('samsung'); await act('samsung.home');
-    await current.waitForFunction(() => __tv.calls.length === 6);
+    await current.waitForFunction(() => __tv.calls.length === 8);
     check('Samsung escape keeps CSFS target', (await current.evaluate(() => __tv.calls.at(-1))).id === 'com.samsung.tv.csfs');
     await current.evaluate(() => window.dispatchEvent(new Event('focus'))); await group('samsung'); await act('samsung.settings');
-    await current.waitForFunction(() => __tv.calls.length === 7);
+    await current.waitForFunction(() => __tv.calls.length === 9);
     check('TV settings keeps installed target', (await current.evaluate(() => __tv.calls.at(-1))).id === 'com.samsung.tv.coba.setting');
     await current.evaluate(() => { window.dispatchEvent(new Event('focus')); __tv.launchFailure = true; });
     await scene('home'); await act('home.app.tizentube'); await current.waitForFunction(() => ShoreQA.where().view === 'message');

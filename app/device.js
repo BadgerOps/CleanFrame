@@ -64,6 +64,25 @@
   }
   function home(done) { launchApp('com.samsung.tv.csfs', done); }
   function settings(done) { launchApp('com.samsung.tv.coba.setting', done); }
+  function input(number, done) {
+    if (!window.tizen || !tizen.systeminfo || !tizen.tvwindow) { unavailable(done); return; }
+    var finish = bounded(done);
+    try {
+      tizen.systeminfo.getPropertyValue('VIDEOSOURCE', function (sources) {
+        var connected = sources && sources.connected || [], target = null, i;
+        for (i = 0; i < connected.length; i++) {
+          if (connected[i].type === 'HDMI' && Number(connected[i].number) === Number(number)) { target = connected[i]; break; }
+        }
+        if (!target) { finish({ message: 'HDMI ' + number + ' is not connected.', detail: 'Connect or wake the device, then try again.' }); return; }
+        try {
+          tizen.tvwindow.setSource(target, function () {
+            try { api().launch(IDS.livetv, function () { finish(null); }, function (err) { finish(failure(err)); }); }
+            catch (err) { finish(failure(err)); }
+          }, function (err) { finish(failure(err)); });
+        } catch (err) { finish(failure(err)); }
+      }, function (err) { finish(failure(err)); });
+    } catch (err) { finish(failure(err)); }
+  }
   function apps(done) {
     if (!api()) { unavailable(done); return; }
     var finish = bounded(done);
@@ -85,5 +104,5 @@
       }, function (err) { finish(failure(err)); });
     } catch (err) { finish(failure(err)); }
   }
-  window.FrameDevice = { launch: launch, launchApp: launchApp, art: art, home: home, settings: settings, apps: apps };
+  window.FrameDevice = { launch: launch, launchApp: launchApp, art: art, home: home, settings: settings, input: input, apps: apps };
 }());
