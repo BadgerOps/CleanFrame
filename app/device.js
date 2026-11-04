@@ -31,9 +31,23 @@
   }
   function launchApp(id, done) {
     if (!api()) { unavailable(done); return; }
+    if (id === IDS.tizentube) { launchTizenTube(done); return; }
     var finish = bounded(done);
     try { api().launch(id, function () { finish(null); }, function (err) { finish(failure(err)); }); }
     catch (err) { finish(failure(err)); }
+  }
+  function launchTizenTube(done) {
+    if (!api()) { unavailable(done); return; }
+    var finish = bounded(done), control;
+    try {
+      control = new tizen.ApplicationControl('http://tizen.org/appcontrol/operation/service');
+      api().launchAppControl(control, 'xvvl3S1TT1.StandaloneService', function () {
+        setTimeout(function () {
+          try { api().launch(IDS.tizentube, function () { finish(null); }, function (err) { finish(failure(err)); }); }
+          catch (err) { finish(failure(err)); }
+        }, 5000);
+      }, function (err) { finish(failure(err)); });
+    } catch (err) { finish(failure(err)); }
   }
   function launch(brand, done) {
     if (!IDS[brand]) { done({message: 'This app has no launch target.'}); return; }
