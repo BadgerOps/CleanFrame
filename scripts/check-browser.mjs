@@ -5,7 +5,7 @@ import { openPreview, root } from './browser.mjs';
 
 const KEY = 'cleanframe.home.v1';
 const PRIMARY = ['jellyfin', 'tizentube', 'livetv', 'disneyplus', 'youtube', 'appletv', 'primevideo', 'abciview', 'sbs', 'applemusic'];
-const HOME_FIXTURE = PRIMARY.filter(id => id !== 'applemusic');
+const HOME_FIXTURE = PRIMARY.filter(id => !['applemusic', 'primevideo'].includes(id)).concat('inputs');
 const IDS = ['AprZAARz4r.Jellyfin', 'xvvl3S1TT1.TizenTubeStandalone', 'org.tizen.tv-viewer', 'MCmYXNxgcu.DisneyPlus', '9Ur5IzDKqV.TizenYouTube', 'com.samsung.tv.aria-video', 'org.tizen.primevideo', 'mWK87Xghap.ABCiview', 'OyE7OuxlUi.SBSOnDemand', 'org.tizen.apple.apple-music'];
 const NAMES = ['Jellyfin', 'TizenTube', 'Live TV', 'Disney+', 'YouTube', 'Apple TV', 'Prime Video', 'ABC iview', 'SBS On Demand', 'Apple Music'];
 const EXTRA = 'AbCdEf1234.FamilyApp', SPOTIFY = 'rJeHak5zRg.Spotify';
@@ -21,11 +21,11 @@ const CATALOG = IDS.map((id, i) => ({ id, name: NAMES[i], show: true, iconPath: 
 const walls = JSON.parse(readFileSync(root + 'app/assets/wallpapers/SOURCES.json', 'utf8'));
 const out = root + '.local/qa/';
 mkdirSync(out, { recursive: true });
-const sourceFiles = ['app/main.js', 'app/device.js', 'app/index.html', 'app/style.css', 'app/config.xml', 'app/assets/wallpapers/SOURCES.json', 'app/assets/wallpapers/catalog.js', 'app/assets/adaptive-ink.js', 'app/assets/icons/metrics.js'];
+const sourceFiles = ['app/main.js', 'app/device.js', 'app/index.html', 'app/style.css', 'app/config.xml', 'app/assets/wallpapers/SOURCES.json', 'app/assets/wallpapers/catalog.js', 'app/assets/adaptive-ink.js', 'app/assets/icons/metrics.js', 'app/assets/icons/inputs.svg'];
 const hashes = () => Object.fromEntries(sourceFiles.map(f => [f, createHash('sha256').update(readFileSync(root + f)).digest('hex')]));
 const report = { scope: 'Production UI in Chromium; mock public Tizen API only; no TV contacted.', sourceBefore: hashes(), checks: [], failures: [], pageErrors: [], expectedNetworkFailures: [] };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const baseline = (patch = {}) => ({ version: 3, dock: HOME_FIXTURE.slice(), wallpaper: walls[0].id, mode: 'fixed', lastApp: 'tizentube', theme: 'shore', ...patch });
+const baseline = (patch = {}) => ({ version: 4, dock: HOME_FIXTURE.slice(), inputNames: ['Apple TV', 'Nintendo Switch', 'HDMI 3', 'HDMI 4'], wallpaper: walls[0].id, mode: 'fixed', lastApp: 'tizentube', theme: 'shore', ...patch });
 let preview, current, section = '';
 
 function check(name, pass, detail) {
@@ -66,18 +66,21 @@ function installHarness({ seed, legacy, mock, catalog, minuteMs, catalogFailure,
   if (noFontAPI) Object.defineProperty(document, 'fonts', { configurable: true, value: undefined });
   if (!mock) return;
   window.__tv = { catalog, catalogFailure: !!catalogFailure, launchFailure: false, holdCatalog: false, pending: [], calls: [], catalogCalls: 0, exits: 0,
-    sources: [{ type: 'HDMI', number: 1 }, { type: 'HDMI', number: 2 }] };
+    sources: [{ type: 'TV', number: 1 }, { type: 'HDMI', number: 1 }, { type: 'HDMI', number: 2 }], currentSource: { type: 'TV', number: 1 } };
   window.tizen = {
     ApplicationControlData: function (key, value) { this.key = key; this.value = value; },
     ApplicationControl: function (operation, uri, mime, category, data) { Object.assign(this, { operation, uri, mime, category, data }); },
     systeminfo: {
-      getPropertyValue(property, ok) { setTimeout(() => ok({ connected: window.__tv.sources.map(source => ({ ...source })) }), 0); }
+      getPropertyValue(property, ok) { setTimeout(() => ok({ connected: window.__tv.sources.map(source => ({ ...source })), disconnected: [] }), 0); }
     },
     tvwindow: {
+      getSource() { return { ...window.__tv.currentSource }; },
       setSource(source, ok, fail) {
-        const tv = window.__tv; tv.calls.push({ method: 'setSource', source: { ...source } });
+        const tv = window.__tv; tv.calls.push({ method: 'setSource', source: { ...source } }); tv.currentSource = { ...source };
         setTimeout(() => tv.launchFailure ? fail({ name: 'UnknownError', message: 'Input unavailable for QA' }) : ok(source, 'MAIN'), 0);
-      }
+      },
+      show(ok, fail, rectangle, type, position) { const tv = window.__tv; tv.calls.push({ method: 'show', rectangle, type, position }); setTimeout(() => ok(rectangle, type), 0); },
+      hide(ok) { window.__tv.calls.push({ method: 'hide' }); setTimeout(ok, 0); }
     },
     application: {
       getCurrentApplication() { return { exit() { window.__tv.exits++; } }; },
@@ -214,9 +217,9 @@ try {
   preview = await openPreview();
   await run('Legacy preference migration', async () => {
     await page({ seed: baseline({ version: 2, dock: ['youtube', 'tizentube'], lastApp: 'youtube' }) });
-    check('Version 2 adds Live TV once', same((await state()).dock, ['youtube', 'tizentube', 'livetv']));
+    check('Version 2 adds Live TV and Inputs once', same((await state()).dock, ['youtube', 'tizentube', 'livetv', 'inputs']));
     await current.reload(); await ready();
-    check('Live TV migration is idempotent', same((await state()).dock, ['youtube', 'tizentube', 'livetv']));
+    check('Home migration is idempotent', same((await state()).dock, ['youtube', 'tizentube', 'livetv', 'inputs']));
     await closePage();
     for (const theme of ['list', 'shore', 'grid']) {
       await page({ seed: baseline({ theme, dock: ['youtube', 'tizentube'], wallpaper: walls[1].id, lastApp: 'youtube', mode: '15' }) });
@@ -238,7 +241,7 @@ try {
     await closePage();
     await page({ seed: { dock: [], wallpaper: 'missing', mode: 'constructor', theme: 'constructor' } });
     const s = await state();
-    check('Invalid values recover intended default Home', same(s.dock, ['jellyfin', 'tizentube', 'livetv']) && walls.some(w => w.id === s.wallpaper) && ['fixed', 'open', '5', '15', '60'].includes(s.mode), s);
+    check('Invalid values recover intended default Home', same(s.dock, ['jellyfin', 'tizentube', 'livetv', 'inputs']) && walls.some(w => w.id === s.wallpaper) && ['fixed', 'open', '5', '15', '60'].includes(s.mode), s);
     await closePage();
     await page({ seed: baseline({ dock: [EXTRA, 'tizentube'], lastApp: EXTRA }), catalogFailure: true });
     await library();
@@ -254,7 +257,7 @@ try {
   await run('Real catalogue and native launch boundary', async () => {
     await page(); await library();
     const names = await current.locator('[data-action^="apps.open."] .label').allTextContents();
-    check('Consumer catalogue includes Live TV and excludes services, self and duplicate YouTube', names.length === 13 && names.includes('Live TV') && names.filter(n => n === 'YouTube').length === 1 && !names.includes('CleanFrame') && !names.includes('Background worker'), names);
+    check('Consumer catalogue includes Live TV and Inputs and excludes services, self and duplicate YouTube', names.length === 14 && names.includes('Live TV') && names.includes('Inputs') && names.filter(n => n === 'YouTube').length === 1 && !names.includes('CleanFrame') && !names.includes('Background worker'), names);
     check('Installed names stay text, including HTML punctuation', names.includes(UNSAFE_NAME) && !(await current.evaluate(() => window.__catalogXss)));
     check('Exploration fixtures do not appear', !names.includes('Plex'));
     await act('apps.open.' + SPOTIFY); await current.waitForFunction(() => __tv.calls.length > 0);
@@ -265,21 +268,30 @@ try {
     check('TizenTube starts its proxy before the native client', tizenTubeCalls[0].method === 'launchAppControl' && tizenTubeCalls[0].id === 'xvvl3S1TT1.StandaloneService' && tizenTubeCalls[1].id === IDS[1], tizenTubeCalls);
     check('Successful app launches keep CleanFrame alive during handoff', (await current.evaluate(() => __tv.exits)) === 0);
     await current.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await scene('home'); await act('home.app.livetv'); await current.waitForFunction(() => __tv.calls.length === 4);
-    check('Live TV launches Samsung built-in tuner', (await current.evaluate(() => __tv.calls.at(-1))).id === 'org.tizen.tv-viewer');
+    await scene('home'); await act('home.app.livetv'); await current.waitForFunction(() => __tv.calls.at(-1)?.id === 'org.tizen.tv-viewer');
+    const liveTvCalls = await current.evaluate(() => __tv.calls.slice(-2));
+    check('Live TV selects the OTA tuner before launching the viewer', liveTvCalls[0].method === 'setSource' && liveTvCalls[0].source.type === 'TV' && liveTvCalls[1].id === 'org.tizen.tv-viewer', liveTvCalls);
     await current.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await act('util.art'); await current.waitForFunction(() => __tv.calls.length === 5);
+    await act('util.art'); await current.waitForFunction(() => __tv.calls.at(-1)?.method === 'launchAppControl');
     const art = await current.evaluate(() => __tv.calls.at(-1));
     check('Art Mode uses app-control with fullscreen request', art.method === 'launchAppControl' && art.id === 'org.tizen.art-app' && art.control.data.some(d => d.key === 'mode' && d.value[0] === 'fullscreen'), art);
-    await current.evaluate(() => window.dispatchEvent(new Event('focus'))); await scene('home'); await act('util.inputs'); await act('input.hdmi.2');
-    await current.waitForFunction(() => __tv.calls.length === 7);
-    const inputCalls = await current.evaluate(() => __tv.calls.slice(-2));
-    check('HDMI selection changes the numbered source then opens the TV viewer', inputCalls[0].method === 'setSource' && inputCalls[0].source.number === 2 && inputCalls[1].id === 'org.tizen.tv-viewer', inputCalls);
+    await current.evaluate(() => window.dispatchEvent(new Event('focus'))); await scene('home'); await act('home.app.inputs');
+    await current.waitForFunction(() => __tv.calls.at(-1)?.method === 'show');
+    const firstPreview = await current.evaluate(() => __tv.calls.slice(-2));
+    check('Inputs is on the main bar and previews HDMI 1', firstPreview[0].method === 'setSource' && firstPreview[0].source.number === 1 && firstPreview[1].method === 'show' && firstPreview[1].position === 'FRONT', firstPreview);
+    await nav('down'); await current.waitForFunction(() => __tv.calls.at(-1)?.method === 'show' && __tv.calls.at(-2)?.source?.number === 2);
+    check('Input focus previews the newly selected HDMI source', (await current.evaluate(() => __tv.calls.slice(-2))).every((call, i) => i ? call.method === 'show' : call.source.number === 2));
+    current.once('dialog', dialog => dialog.accept('Nintendo Switch OLED'));
+    await act('input.rename.2');
+    check('Input names are editable and persisted on the TV', (await stored()).inputNames[1] === 'Nintendo Switch OLED' && (await current.locator('[data-action="input.hdmi.2"] .setting-name').innerText()) === 'Nintendo Switch OLED');
+    await nav('ok'); await current.waitForFunction(() => __tv.calls.at(-1)?.id === 'org.tizen.tv-viewer');
+    const inputCalls = await current.evaluate(() => __tv.calls.slice(-3));
+    check('HDMI activation hides preview, keeps the source and opens the TV viewer', inputCalls[0].method === 'hide' && inputCalls[1].source.number === 2 && inputCalls[2].id === 'org.tizen.tv-viewer', inputCalls);
     await current.evaluate(() => window.dispatchEvent(new Event('focus'))); await group('samsung'); await act('samsung.home');
-    await current.waitForFunction(() => __tv.calls.length === 8);
+    await current.waitForFunction(() => __tv.calls.at(-1)?.id === 'com.samsung.tv.csfs');
     check('Samsung escape keeps CSFS target', (await current.evaluate(() => __tv.calls.at(-1))).id === 'com.samsung.tv.csfs');
     await current.evaluate(() => window.dispatchEvent(new Event('focus'))); await group('samsung'); await act('samsung.settings');
-    await current.waitForFunction(() => __tv.calls.length === 9);
+    await current.waitForFunction(() => __tv.calls.at(-1)?.id === 'com.samsung.tv.coba.setting');
     check('TV settings keeps installed target', (await current.evaluate(() => __tv.calls.at(-1))).id === 'com.samsung.tv.coba.setting');
     await current.evaluate(() => { window.dispatchEvent(new Event('focus')); __tv.launchFailure = true; });
     await scene('home'); await act('home.app.tizentube'); await current.waitForFunction(() => ShoreQA.where().view === 'message');
@@ -290,7 +302,7 @@ try {
     check('Catalogue failure leaves Home intact', same((await state()).dock, HOME_FIXTURE));
     await current.evaluate(() => { __tv.catalogFailure = false; }); await act('apps.retry');
     await current.waitForSelector('[data-action="apps.open.' + EXTRA + '"]');
-    check('Retry displays real installed names', (await current.locator('[data-action^="apps.open."]').count()) === 13);
+    check('Retry displays real installed names', (await current.locator('[data-action^="apps.open."]').count()) === 14);
   });
   await run('Native icon and failed-image fallback', async () => {
     await page({ catalog: CATALOG.map(a => a.id === EXTRA ? { ...a, iconPath: '/home/assets/icons/netflix.svg' } : a) });

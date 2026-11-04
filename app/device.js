@@ -64,24 +64,59 @@
   }
   function home(done) { launchApp('com.samsung.tv.csfs', done); }
   function settings(done) { launchApp('com.samsung.tv.coba.setting', done); }
-  function input(number, done) {
+  var previewSource = null;
+  function videoSource(type, number, done) {
     if (!window.tizen || !tizen.systeminfo || !tizen.tvwindow) { unavailable(done); return; }
-    var finish = bounded(done);
     try {
       tizen.systeminfo.getPropertyValue('VIDEOSOURCE', function (sources) {
-        var connected = sources && sources.connected || [], target = null, i;
-        for (i = 0; i < connected.length; i++) {
-          if (connected[i].type === 'HDMI' && Number(connected[i].number) === Number(number)) { target = connected[i]; break; }
+        var available = (sources && sources.connected || []).concat(sources && sources.disconnected || []), target = null, i;
+        for (i = 0; i < available.length; i++) {
+          if (available[i].type === type && (number === null || Number(available[i].number) === Number(number))) { target = available[i]; break; }
         }
-        if (!target) { finish({ message: 'HDMI ' + number + ' is not connected.', detail: 'Connect or wake the device, then try again.' }); return; }
-        try {
-          tizen.tvwindow.setSource(target, function () {
-            try { api().launch(IDS.livetv, function () { finish(null); }, function (err) { finish(failure(err)); }); }
-            catch (err) { finish(failure(err)); }
-          }, function (err) { finish(failure(err)); });
-        } catch (err) { finish(failure(err)); }
-      }, function (err) { finish(failure(err)); });
-    } catch (err) { finish(failure(err)); }
+        if (!target) { done({ message: type === 'TV' ? 'The OTA tuner is unavailable.' : 'HDMI ' + number + ' is unavailable.', detail: type === 'TV' ? 'Check that antenna channels have been scanned in TV settings.' : 'Connect or wake the device, then try again.' }); return; }
+        done(null, target);
+      }, function (err) { done(failure(err)); });
+    } catch (err) { done(failure(err)); }
+  }
+  function setVideoSource(type, number, done) {
+    videoSource(type, number, function (err, source) {
+      if (err) { done(err); return; }
+      try { tizen.tvwindow.setSource(source, function () { done(null, source); }, function (e) { done(failure(e)); }); }
+      catch (e) { done(failure(e)); }
+    });
+  }
+  function openViewer(type, number, done) {
+    var finish = bounded(done);
+    setVideoSource(type, number, function (err) {
+      if (err) { finish(err); return; }
+      previewSource = null;
+      try { api().launch(IDS.livetv, function () { finish(null); }, function (e) { finish(failure(e)); }); }
+      catch (e) { finish(failure(e)); }
+    });
+  }
+  function liveTv(done) { openViewer('TV', null, done); }
+  function input(number, done) { openViewer('HDMI', number, done); }
+  function previewInput(number, rectangle, done) {
+    if (!window.tizen || !tizen.tvwindow) { unavailable(done); return; }
+    var finish = bounded(done);
+    try { if (!previewSource) previewSource = tizen.tvwindow.getSource('MAIN'); } catch (e) { previewSource = null; }
+    setVideoSource('HDMI', number, function (err) {
+      if (err) { finish(err); return; }
+      try { tizen.tvwindow.show(function () { finish(null); }, function (e) { finish(failure(e)); }, rectangle, 'MAIN', 'FRONT'); }
+      catch (e) { finish(failure(e)); }
+    });
+  }
+  function closePreview(restore, done) {
+    if (!window.tizen || !tizen.tvwindow) { if (done) done(null); return; }
+    var original = previewSource; previewSource = null;
+    function hide() {
+      try { tizen.tvwindow.hide(function () { if (done) done(null); }, function () { if (done) done(null); }, 'MAIN'); }
+      catch (e) { if (done) done(null); }
+    }
+    if (restore && original) {
+      try { tizen.tvwindow.setSource(original, hide, hide, 'MAIN'); }
+      catch (e) { hide(); }
+    } else hide();
   }
   function apps(done) {
     if (!api()) { unavailable(done); return; }
@@ -104,5 +139,5 @@
       }, function (err) { finish(failure(err)); });
     } catch (err) { finish(failure(err)); }
   }
-  window.FrameDevice = { launch: launch, launchApp: launchApp, art: art, home: home, settings: settings, input: input, apps: apps };
+  window.FrameDevice = { launch: launch, launchApp: launchApp, liveTv: liveTv, art: art, home: home, settings: settings, input: input, previewInput: previewInput, closePreview: closePreview, apps: apps };
 }());

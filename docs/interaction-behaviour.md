@@ -1,9 +1,9 @@
-# Interaction behaviour — 0.6.4
+# Interaction behaviour — 0.6.5
 
 ## Home
 
-- Dock: Left/Right scrolls the apps without wrapping. Up enters the top-right controls, starting with Art Mode or the last selected control. Left/Right moves between Art Mode, Inputs, All apps and Settings. Down or Back returns to the selected app. The clock is at the top left.
-- List: Up/Down scrolls the apps without wrapping. Right enters the bottom-right controls, aligned with the clock above. Up/Down moves between Art Mode, Inputs, All apps and Settings. Left or Back returns to the selected app. The list fades at both ends as it scrolls.
+- Dock: Left/Right scrolls the apps without wrapping. Up enters the top-right controls, starting with Art Mode or the last selected control. Left/Right moves between Art Mode, All apps and Settings. Down or Back returns to the selected app. The clock is at the top left.
+- List: Up/Down scrolls the apps without wrapping. Right enters the bottom-right controls, aligned with the clock above. Up/Down moves between Art Mode, All apps and Settings. Left or Back returns to the selected app. The list fades at both ends as it scrolls.
 - OK opens the selected item. Focus alone never launches an app.
 - Icons-only apps and controls reveal their names when focused. App presentation and control presentation are independent.
 - Back from the app list or Dock opens a choice to stay or open Samsung Home.
@@ -33,11 +33,11 @@ The selected font applies to Home app names, the clock and Home controls, includ
 
 ## Streaming apps
 
-The default apps keep their known native IDs. Other installed consumer apps can also be added to Home. Live TV opens Samsung's built-in `org.tizen.tv-viewer` application for the television's coax tuner; it does not connect to a network tuner such as HDHomeRun. Version 2 preferences gain Live TV once during migration when Home has room, while later removal remains respected. Launching uses the public `tizen.application.launch` API with the app's native ID. CleanFrame stays alive for Tizen to suspend after the handoff; it does not terminate the registered Home process while the target app is starting. Missing apps and denied launches produce a real error. No web player, placeholder success page or account credential is embedded.
+The default apps keep their known native IDs. Other installed consumer apps can also be added to Home. Live TV selects the television's `TV` video source before opening Samsung's built-in `org.tizen.tv-viewer` application for the coax tuner; it does not connect to a network tuner such as HDHomeRun. Older preferences gain Live TV and Inputs once during migration when Home has room, while later removal remains respected. Launching uses the public Tizen application and TVWindow APIs. CleanFrame stays alive for Tizen to suspend after the handoff; it does not terminate the registered Home process while the target app is starting. Missing apps and denied launches produce a real error. No web player, placeholder success page or account credential is embedded.
 
 ## HDMI inputs
 
-Inputs on Home opens a four-port HDMI picker. Selecting a port looks up the TV's connected `VIDEOSOURCE` entries, changes the main source with the public TVWindow API, then launches the built-in TV viewer so the source fills the screen. A disconnected or sleeping input reports an error and leaves CleanFrame usable.
+Inputs is an app-like item in the main Home bar. It opens a four-port HDMI picker and previews the focused source in the right-hand pane using the public TVWindow API. Each port has a persistent local name; Rename opens the TV's text-entry dialog. OK changes the main source and launches the built-in TV viewer so the input fills the screen. Back restores the source that was active before previewing. An unavailable or sleeping input reports an error and leaves CleanFrame usable.
 
 ## All apps
 

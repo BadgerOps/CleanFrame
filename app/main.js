@@ -17,6 +17,7 @@
     { id: 'jellyfin', name: 'Jellyfin', mark: true, appId: 'AprZAARz4r.Jellyfin' },
     { id: 'tizentube', name: 'TizenTube', mark: true, appId: 'xvvl3S1TT1.TizenTubeStandalone' },
     { id: 'livetv', name: 'Live TV', mark: true, appId: 'org.tizen.tv-viewer' },
+    { id: 'inputs', name: 'Inputs', mark: true, appId: '' },
     { id: 'disneyplus', name: 'Disney+', mark: true, appId: 'MCmYXNxgcu.DisneyPlus' },
     { id: 'youtube', name: 'YouTube', mark: true, appId: '9Ur5IzDKqV.TizenYouTube' },
     { id: 'appletv', name: 'Apple TV', mark: true, appId: 'com.samsung.tv.aria-video' },
@@ -26,7 +27,8 @@
     { id: 'applemusic', name: 'Apple Music', mark: true, appId: 'org.tizen.apple.apple-music' }
   ];
   var PRIMARY = PRIMARY_APPS.map(function (a) { return a.id; }), APPS = PRIMARY_APPS.slice(), ALPHA = [];
-  var DEFAULT_HOME = ['jellyfin', 'tizentube', 'livetv'];
+  var DEFAULT_HOME = ['jellyfin', 'tizentube', 'livetv', 'inputs'];
+  var DEFAULT_INPUT_NAMES = ['HDMI 1', 'HDMI 2', 'HDMI 3', 'HDMI 4'];
   var WALLS = window.CleanFrameWallpapers || [{ id: 'misty', name: 'Misty coast', tone: 'light', ut: { tr: 'mist', br: 'mist' }, frostVeil: .20 }];
   var ADAPTIVE_INK = window.CleanFrameAdaptiveInk || {};
   WALLS.forEach(function (w) { w.ut = w.ut || { tr: 'light', br: 'light' }; w.frostVeil = w.frostVeil || .12; });
@@ -50,7 +52,7 @@
   var LOOK_VALUES = { bg: ['dark', 'light', 'photo'], layout: ['list', 'dock'], apps: ['icons', 'both', 'text'], font: Object.keys(FONTS).filter(function (id) { return id === 'manrope' || PRIVATE_FONTS.indexOf(id) >= 0; }), controls: ['icons', 'both', 'text'], focus: ['type', 'glass'], material: ['soft', 'frost', 'tint'] };
   var LOOK_NAMES = { bg: 'Background', layout: 'Layout', apps: 'Apps', font: 'Font', controls: 'Home controls', focus: 'Focus', material: 'Material' };
   var VALUE_NAMES = { dark: 'Dark', light: 'Light', photo: 'Photo', list: 'List', dock: 'Dock', type: 'Type', glass: 'Glass', soft: 'Soft', frost: 'Frost', tint: 'Clear tint', icons: 'Icons', both: 'Icons and text', text: 'Text' };
-  var UTIL = { art: ['Art Mode', 'art'], inputs: ['Inputs', 'tv'], apps: ['All apps', 'apps'], arrange: ['Arrange', 'arrange'], settings: ['Settings', 'settings'] };
+  var UTIL = { art: ['Art Mode', 'art'], apps: ['All apps', 'apps'], arrange: ['Arrange', 'arrange'], settings: ['Settings', 'settings'] };
   var MSG = {
     leave: { title: 'Leave Home?', line: 'Open Samsung Home?', note: '', actions: [['stay', 'Stay'], ['samsung', 'Samsung Home']] }
   };
@@ -330,7 +332,11 @@
   }
   function clean(saved) {
     var s = saved && typeof saved === 'object' ? saved : {}, modern = s.look && typeof s.look === 'object' ? s.look : s;
-    var legacyList = s.theme === 'list', h = [], recent = [], records = Array.isArray(s.appRecords) ? s.appRecords : [];
+    var legacyList = s.theme === 'list', h = [], recent = [], records = Array.isArray(s.appRecords) ? s.appRecords : [], inputNames = DEFAULT_INPUT_NAMES.slice();
+    if (Array.isArray(s.inputNames)) s.inputNames.slice(0, 4).forEach(function (name, index) {
+      name = typeof name === 'string' ? name.trim().slice(0, 40) : '';
+      if (name) inputNames[index] = name;
+    });
     records.slice(0, 256).forEach(function (a) {
       if (!a || !safeId(a.id) || !safeId(a.appId) || typeof a.name !== 'string' || !a.name.trim() || app(a.id)) return;
       APPS.push({ id: a.id, appId: a.appId, name: a.name.slice(0, 160), brand: ['hbomax', 'spotify', 'tubi'].indexOf(a.brand) >= 0 ? a.brand : '', mark: ['hbomax', 'spotify', 'tubi'].indexOf(a.brand) >= 0, icon: safeIcon(a.icon) });
@@ -342,6 +348,7 @@
     });
     if (!h.length) h = DEFAULT_HOME.slice();
     else if ((Number(s.version) || 0) < 3 && h.indexOf('livetv') < 0 && h.length < CAP) h.push('livetv');
+    if ((Number(s.version) || 0) < 4 && h.indexOf('inputs') < 0 && h.length < CAP) h.push('inputs');
     (Array.isArray(s.recent) ? s.recent : []).forEach(function (id) { if (safeId(id) && app(id) && h.indexOf(id) < 0 && recent.indexOf(id) < 0 && recent.length < 5) recent.push(id); });
     return {
       bg: pick(modern.bg, LOOK_VALUES.bg, legacyList ? 'dark' : 'photo'), layout: pick(modern.layout, LOOK_VALUES.layout, legacyList ? 'list' : 'dock'),
@@ -349,13 +356,13 @@
       focus: pick(modern.focus, LOOK_VALUES.focus, legacyList ? 'type' : 'glass'), material: pick(modern.material, LOOK_VALUES.material, 'soft'),
       font: pick(modern.font, LOOK_VALUES.font, 'manrope'), wall: wall(modern.wall || s.wallpaper) ? modern.wall || s.wallpaper : WALLS[0].id,
       home: h, recent: recent, lastApp: h.indexOf(s.lastApp) >= 0 ? s.lastApp : h[0],
-      mode: pick(s.mode, MODES.map(function (m) { return m.id; }), 'fixed')
+      mode: pick(s.mode, MODES.map(function (m) { return m.id; }), 'fixed'), inputNames: inputNames
     };
   }
   function serialise(c) {
     var out = {}, id;
     Object.keys(c).forEach(function (key) { out[key] = c[key]; });
-    out.version = 3; out.look = lookOf(c); out.dock = c.home.slice(); out.wallpaper = c.wall;
+    out.version = 4; out.look = lookOf(c); out.dock = c.home.slice(); out.wallpaper = c.wall; out.inputNames = c.inputNames.slice();
     out.theme = c.layout === 'list' ? 'list' : 'shore';
     out.appRecords = [];
     c.home.concat(c.recent).forEach(function (key) {
@@ -374,7 +381,7 @@
   }
   function clearSession() { S.undo = []; S.removedAt = {}; S.note = null; S.err = null; }
   function begin() { S.note = null; }
-  function next(home, recent) { var c = lookOf(S.c); c.home = home; c.recent = recent; c.lastApp = S.c.lastApp; c.mode = S.c.mode; return c; }
+  function next(home, recent) { var c = lookOf(S.c); c.home = home; c.recent = recent; c.lastApp = S.c.lastApp; c.mode = S.c.mode; c.inputNames = S.c.inputNames.slice(); return c; }
   function snap() { return { home: S.c.home.slice(), recent: S.c.recent.slice() }; }
   function pushRecent(list, id) { return [id].concat(without(list, id)).slice(0, 5); }
   function write(c, label) {
@@ -464,7 +471,9 @@
     if (!a || busy) return;
     if (S.c.home.indexOf(id) >= 0) { c = next(S.c.home.slice(), S.c.recent.slice()); c.lastApp = id; write(c, 'Last app'); }
     S.press = id; S.lastLaunch = a.name;
-    perform(a.name, function (done) { FrameDevice.launchApp(a.appId, done); });
+    if (id === 'inputs') { S.press = null; openAppearance('inputs'); return; }
+    if (id === 'livetv') perform(a.name, FrameDevice.liveTv);
+    else perform(a.name, function (done) { FrameDevice.launchApp(a.appId, done); });
   }
   function refreshCatalog() {
     var request, oldFocus;
@@ -475,7 +484,7 @@
       catalog.loading = false;
       if (err) { catalog.error = err.message || 'Could not read installed apps.'; if (!catalog.loaded) ALPHA = []; render(); return; }
       oldFocus = top().id === 'apps' ? ALPHA[top().f.i] : null;
-      ALPHA = [];
+      ALPHA = ['inputs'];
       entries.forEach(function (entry) {
         var id = PRIMARY.indexOf(entry.brand) >= 0 ? entry.brand : entry.appId, a;
         if (!safeId(id) || !safeId(entry.appId) || ALPHA.indexOf(id) >= 0) return;
@@ -494,7 +503,7 @@
   }
 
   /* ---------- Navigation targets ---------- */
-  function utils() { return ['art', 'inputs', 'apps', 'settings']; }
+  function utils() { return ['art', 'apps', 'settings']; }
   /* prev/next run along the apps; out goes to the controls, inn comes back (or to a per-app action). */
   function axes() {
     var v = S.c.layout === 'list';
@@ -502,7 +511,6 @@
   }
   function utilAction(u) {
     if (u === 'art') perform('Art Mode', FrameDevice.art);
-    else if (u === 'inputs') openAppearance('inputs');
     else if (u === 'apps') openApps();
     else openSettings();
   }
@@ -510,8 +518,8 @@
   function openSettings() { push({ id: 'settings', f: { id: S.settingsFocus } }); }
   function openAppearance(group) {
     var axis = { background: 'bg', layout: 'layout', typography: 'font', focus: 'focus' }[group];
-    var action = S.detailFocus[group] || (axis ? 'choice.' + axis + '.' + S.c[axis] : group === 'rotation' ? 'rotation.' + S.c.mode : 'samsung.home');
-    push({ id: 'appearance', group: group, f: { action: action } });
+    var action = S.detailFocus[group] || (axis ? 'choice.' + axis + '.' + S.c[axis] : group === 'rotation' ? 'rotation.' + S.c.mode : group === 'inputs' ? 'input.hdmi.1' : 'samsung.home');
+    push({ id: 'appearance', group: group, f: { action: action }, previewTimer: 0, previewNumber: 0, previewError: null });
   }
   function openMessage(key) { push({ id: 'message', msg: key, f: { b: 0 } }); }
   function openApps() {
@@ -871,16 +879,19 @@
     ];
     if (t.group === 'rotation') return [{ id: 'mode', title: '', items: options('mode', MODES.map(function (m) { return m.id; }), flat),
       reason: flat ? 'Choose Photo in Background to use rotation.' : 'Timed changes pause while Settings or another panel is open.' }];
-    if (t.group === 'inputs') return [{ id: 'inputs', title: '', items: [1, 2, 3, 4].map(function (number) {
-      return { action: 'input.hdmi.' + number, label: 'HDMI ' + number, description: 'Switch to HDMI ' + number };
-    }) }];
+    if (t.group === 'inputs') return [1, 2, 3, 4].map(function (number) { return {
+      id: 'input-' + number, title: '', horizontal: true, items: [
+        { action: 'input.hdmi.' + number, label: S.c.inputNames[number - 1], description: 'HDMI ' + number },
+        { action: 'input.rename.' + number, label: 'Rename', description: 'Change this input name' }
+      ]
+    }; });
     return [{ id: 'samsung', title: '', items: [
       { action: 'samsung.home', label: 'Samsung Home', description: 'Open Samsung’s Home screen' },
       { action: 'samsung.settings', label: 'TV settings', description: 'Picture, sound and network settings' }
     ] }];
   }
   function detailRows(t) {
-    var rows = [[{ action: 'settings.back', label: t.group === 'rotation' ? 'Background' : 'Settings' }]];
+    var rows = [[{ action: 'settings.back', label: t.group === 'rotation' ? 'Background' : t.group === 'inputs' ? 'Home' : 'Settings' }]];
     detailSections(t).forEach(function (section) {
       var enabled = section.items.filter(function (item) { return !item.disabled; });
       if (section.horizontal && enabled.length) rows.push(enabled);
@@ -894,11 +905,23 @@
     rows.forEach(function (items, r) { items.forEach(function (item, c) { if (item.action === t.f.action) { row = r; column = c; } }); });
     return { rows: rows, row: row, column: column, item: rows[row][column] };
   }
+  function scheduleInputPreview(t, number) {
+    if (t.group !== 'inputs' || t.previewNumber === number) return;
+    clearTimeout(t.previewTimer); t.previewNumber = number; t.previewError = null;
+    t.previewTimer = setTimeout(function () {
+      if (top() !== t || t.group !== 'inputs' || t.previewNumber !== number) return;
+      FrameDevice.previewInput(number, ['870px', '260px', '880px', '495px'], function (err) {
+        if (top() !== t || t.previewNumber !== number) return;
+        t.previewError = err || null; render();
+      });
+    }, 220);
+  }
   function detailFocus(t, item, column) {
     t.f.action = item.action;
     if (item.action !== 'settings.back') S.detailFocus[t.group] = item.action;
     if (column !== undefined) t.f.column = column;
     if (item.axis) S.appearanceFocus = item.axis;
+    if (t.group === 'inputs' && item.action.indexOf('input.hdmi.') === 0) scheduleInputPreview(t, Number(item.action.slice(11)));
   }
   function applyRotation(value) {
     var c;
@@ -908,10 +931,22 @@
     c = next(S.c.home.slice(), S.c.recent.slice()); c.mode = value;
     if (!write(c, 'Wallpaper rotation')) S.lookError = { type: 'save', patch: { mode: value }, row: 'mode', transient: false };
   }
-  function detailBack() { cancelLook(); S.err = null; pop(); }
+  function detailBack(t) {
+    cancelLook(); S.err = null;
+    if (t && t.group === 'inputs') { clearTimeout(t.previewTimer); FrameDevice.closePreview(true, function () {}); }
+    pop();
+  }
+  function renameInput(t, number) {
+    var current = S.c.inputNames[number - 1], value = window.prompt('Name HDMI ' + number, current), c;
+    if (value === null) return;
+    value = String(value).trim().replace(/\s+/g, ' ').slice(0, 40);
+    if (!value || value === current) return;
+    c = next(S.c.home.slice(), S.c.recent.slice()); c.inputNames[number - 1] = value;
+    if (write(c, 'HDMI ' + number + ' name')) { t.f.action = 'input.hdmi.' + number; S.detailFocus.inputs = t.f.action; }
+  }
   function detailOk(t, item) {
     var patch = {}, error = S.lookError;
-    if (item.action === 'settings.back') { detailBack(); return; }
+    if (item.action === 'settings.back') { detailBack(t); return; }
     if (item.disabled || S.pending) return;
     if (item.action === 'settings.retry') {
       if (error && error.patch[error.row] !== undefined) detailFocus(t, choice(error.row, error.patch[error.row]), 0);
@@ -921,7 +956,11 @@
     else if (item.axis) { patch[item.axis] = item.value; setLook(patch, { row: item.axis }); }
     else if (item.action === 'background.wallpaper') openWallpaper();
     else if (item.action === 'background.rotation') openAppearance('rotation');
-    else if (item.action.indexOf('input.hdmi.') === 0) perform(item.label, function (done) { FrameDevice.input(Number(item.action.slice(11)), done); });
+    else if (item.action.indexOf('input.hdmi.') === 0) {
+      clearTimeout(t.previewTimer); FrameDevice.closePreview(false, function () {});
+      perform(item.label, function (done) { FrameDevice.input(Number(item.action.slice(11)), done); });
+    }
+    else if (item.action.indexOf('input.rename.') === 0) renameInput(t, Number(item.action.slice(13)));
     else if (item.action === 'samsung.home') perform('Samsung Home', FrameDevice.home);
     else if (item.action === 'samsung.settings') perform('TV settings', FrameDevice.settings);
   }
@@ -934,11 +973,12 @@
         if (item.axis === axis && item.value === S.c[axis]) applied = item;
       }); });
       if (!exists) detailFocus(t, applied || (rows[1] || rows[0])[0], 0);
+      else if (t.group === 'inputs' && t.f.action.indexOf('input.hdmi.') === 0) scheduleInputPreview(t, Number(t.f.action.slice(11)));
       if (t.f.column === undefined) t.f.column = detailLocation(t).column;
     },
     key: function (t, k) {
       var at = detailLocation(t), row = at.row, column = at.column;
-      if (k === 'back') { detailBack(); return; }
+      if (k === 'back') { detailBack(t); return; }
       if (k === 'ok') { detailOk(t, at.item); return; }
       if (k === 'up' || k === 'down') {
         row = clamp(row + (k === 'up' ? -1 : 1), 0, at.rows.length - 1);
@@ -1401,7 +1441,7 @@
         + ' data-z="detail" data-i="0" data-id="' + item.action + '" data-action="' + item.action + '">' + inner
         + (item.axis ? '<span class="setting-tick" aria-hidden="true">' + (applied ? icon('check') : '') + '</span>' : '') + '</button>';
     }
-    setHTML(appearanceBack, command({ action: 'settings.back', label: t.group === 'rotation' ? 'Background' : 'Settings' }, icon('left') + '<span>' + (t.group === 'rotation' ? 'Background' : 'Settings') + '</span>', 'setting-back'));
+    setHTML(appearanceBack, command({ action: 'settings.back', label: t.group === 'rotation' ? 'Background' : t.group === 'inputs' ? 'Home' : 'Settings' }, icon('left') + '<span>' + (t.group === 'rotation' ? 'Background' : t.group === 'inputs' ? 'Home' : 'Settings') + '</span>', 'setting-back'));
     setHTML(appearanceRows, detailSections(t).map(function (section) {
       return '<section class="setting-section' + (section.horizontal ? ' is-horizontal' : '') + ' section-' + section.id + '">'
         + (section.title ? '<h3 class="setting-label" id="setting-' + section.id + '">' + section.title + '</h3>' : '')
@@ -1418,13 +1458,16 @@
         }).join('') + '</div>'
         + (section.reason ? '<p class="setting-reason">' + esc(section.reason) + '</p>' : '') + '</section>';
     }).join(''));
-    if (S.pending) status = '<p>Loading ' + esc(S.pending.row === 'font' ? FONTS[S.pending.target.font].name : 'your choice') + '…</p><p>Back cancels this change.</p>';
+    if (t.group === 'inputs') status = t.previewError
+      ? '<p class="setting-error">Preview unavailable: ' + esc(t.previewError.message || 'The source did not respond.') + '</p><p>OK still switches to the selected input.</p>'
+      : '<p class="input-preview-label">Live preview · ' + esc(S.c.inputNames[(t.previewNumber || 1) - 1]) + '</p>';
+    else if (S.pending) status = '<p>Loading ' + esc(S.pending.row === 'font' ? FONTS[S.pending.target.font].name : 'your choice') + '…</p><p>Back cancels this change.</p>';
     else if (error) {
       status = '<p class="setting-error">' + (error.type === 'save' ? 'Couldn’t save this change.' : error.type === 'font' ? 'Couldn’t load ' + esc(FONTS[error.font].name) + '.' : 'Couldn’t load this appearance.') + ' Your current choice is kept.</p>'
         + command({ action: 'settings.retry', label: 'Try again' }, '<span>Try again</span>', 'setting-retry');
     }
     setHTML(appearanceStatus, status);
-    hint = selected.disabled ? '' : selected.action === 'settings.back' ? 'Return to ' + (t.group === 'rotation' ? 'Background' : 'Settings') : selected.action === 'settings.retry' ? 'Retry this change' : selected.axis ? 'Apply selected setting' : selected.action === 'background.wallpaper' ? 'Choose a wallpaper' : selected.action === 'background.rotation' ? 'Choose a rotation interval' : 'Open on the TV';
+    hint = selected.disabled ? '' : selected.action === 'settings.back' ? 'Return to ' + (t.group === 'rotation' ? 'Background' : t.group === 'inputs' ? 'Home' : 'Settings') : selected.action === 'settings.retry' ? 'Retry this change' : selected.axis ? 'Apply selected setting' : selected.action === 'background.wallpaper' ? 'Choose a wallpaper' : selected.action === 'background.rotation' ? 'Choose a rotation interval' : selected.action.indexOf('input.rename.') === 0 ? 'Rename this input' : selected.action.indexOf('input.hdmi.') === 0 ? 'Switch to this input' : 'Open on the TV';
     setHTML(appearanceDesc, hint ? '<span class="remote-key">OK</span><span>' + esc(hint) + '</span>' : '');
   }
   function renderWallpaper(t) {
